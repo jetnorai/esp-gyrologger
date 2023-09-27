@@ -288,5 +288,12 @@ void cam_control_task(void* param) {
         case 6: {
             lanc_listen_task((void*)true);
         } break;
+        case 7: {
+            uart_camera_task(param);
+        } break;
+
+        default:
+            vTaskDelete(nullptr);
+            break;
     }
 }
