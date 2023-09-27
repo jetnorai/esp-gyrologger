@@ -85,7 +85,7 @@ static esp_err_t respond_with_file(httpd_req_t* req, const char* filename) {
     static uint8_t buf2[2000];
     static char buf_text[4096];
 
-    const double sample_rate = 1.0 / 0.00180;
+    const double sample_rate = 1.0 / 0.00125;
     const double gscale = 1 / 0.00053263221;
 
     HANDLE(httpd_resp_send_chunk(req, R"--(GYROFLOW IMU LOG
