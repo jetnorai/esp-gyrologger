@@ -15,8 +15,53 @@ extern "C" {
 }
 
 #include <string>
+#include <cstring>
 
 #define TAG "camera_task"
+#define UART_BAUDRATE 115200
+
+void queryCameraStatus() {
+    // This function sends the request to the UART camera to get its status.
+    byte packet[] = {0xEA, 0x02, 0x01, 0x1D}; // The actual command to query the camera status.
+    uart_write_bytes(UART_NUM_2, (const char*)packet, sizeof(packet));
+}
+
+void handleUartResponse() {
+    // This function handles the response from the UART camera.
+    byte data[128];
+    int len = uart_read_bytes(UART_NUM_2, (uint8_t*)data, sizeof(data) - 1, 100 / portTICK_RATE_MS);
+    if (len > 0) {
+        if (memcmp(data, (byte[]){0xEA, 0x02, 0x03, 0x9D, 0x00, 0x01}, 6) == 0) {
+            ESP_LOGI(TAG, "Camera is recording");
+            gctx.logger_control.active = true;
+        } else if (memcmp(data, (byte[]){0xEA, 0x02, 0x03, 0x9D, 0x00, 0x00}, 6) == 0) {
+            ESP_LOGI(TAG, "Camera stopped recording");
+            gctx.logger_control.active = false;
+        }
+    }
+}
+
+void uart_camera_task(void* param) {
+    uart_config_t uart_config = {
+        .baud_rate = UART_BAUDRATE,
+        .data_bits = UART_DATA_8_BITS,
+        .parity = UART_PARITY_DISABLE,
+        .stop_bits = UART_STOP_BITS_1,
+        .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
+        .source_clk = UART_SCLK_APB,
+    };
+
+    ESP_ERROR_CHECK(uart_driver_install(UART_NUM_2, 1024, 0, 0, NULL, 0)); // Install UART driver
+    ESP_ERROR_CHECK(uart_param_config(UART_NUM_2, &uart_config)); // Set the UART configuration
+    ESP_ERROR_CHECK(uart_set_pin(UART_NUM_2, 17, 16, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE)); // Set UART pins
+
+    while (1) {
+        queryCameraStatus();
+        handleUartResponse();
+
+        vTaskDelay(500 / portTICK_PERIOD_MS); // Query every 0.5 second
+    }
+}
 
 static bool make_tcp_conn(char* host, int port, int* sock_ret) {
     int addr_family = 0;
